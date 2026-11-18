@@ -52,6 +52,7 @@ import { shouldShowComponent } from "../customisations/helpers/UIComponents";
 import { TimelineRenderingType } from "../contexts/RoomContext";
 import { type ViewRoomPayload } from "../dispatcher/payloads/ViewRoomPayload";
 import { htmlSerializeFromMdIfNeeded } from "../editor/serialize";
+import escapeHtml from "escape-html";
 import { leaveRoomBehaviour } from "../utils/leave-behaviour";
 import { MatrixClientPeg } from "../MatrixClientPeg";
 import { isCurrentLocalRoom, reject, singleMxcUpload, success, successSync, splitAtFirstSpace } from "./utils";
@@ -73,7 +74,12 @@ export const Commands = [
         args: "<message>",
         description: _td("slash_command|spoiler"),
         runFn: function (cli, roomId, threadId, message = "") {
-            return successSync(ContentHelpers.makeHtmlMessage(message, `<span data-mx-spoiler>${message}</span>`));
+            // Render the message as Markdown so formatting (e.g. **bold**) works inside the spoiler
+            const html = htmlSerializeFromMdIfNeeded(message, { forceHTML: true }) ?? escapeHtml(message);
+            // Unwrap a single paragraph so the spoiler stays an inline element
+            const singleParagraph = /^<p>[^]*<\/p>$/.test(html) && html.split("<p>").length === 2;
+            const inner = singleParagraph ? html.slice(3, -4) : html;
+            return successSync(ContentHelpers.makeHtmlMessage(message, `<span data-mx-spoiler>${inner}</span>`));
         },
         category: CommandCategories.messages,
     }),
